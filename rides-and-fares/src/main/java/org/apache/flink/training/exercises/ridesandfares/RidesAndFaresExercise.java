@@ -41,13 +41,13 @@ import org.apache.flink.util.Collector;
  */
 public class RidesAndFaresExercise {
 
-    private final SourceFunction<TaxiRide> rideSource;
+    private final Source<TaxiRide, ?, ?> rideSource;
     private final SourceFunction<TaxiFare> fareSource;
     private final SinkFunction<RideAndFare> sink;
 
     /** Creates a job using the sources and sink provided. */
     public RidesAndFaresExercise(
-            SourceFunction<TaxiRide> rideSource,
+            Source<TaxiRide, ?, ?> rideSource,
             SourceFunction<TaxiFare> fareSource,
             SinkFunction<RideAndFare> sink) {
 

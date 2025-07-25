@@ -18,6 +18,7 @@
 
 package org.apache.flink.training.solutions.longrides;
 
+import java.io.Serializable;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
@@ -30,8 +31,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.PrintSink;
-import org.apache.flink.streaming.api.functions.sink.legacy.PrintSinkFunction;
-import org.apache.flink.streaming.api.functions.sink.legacy.SinkFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
@@ -47,7 +46,7 @@ import java.time.Duration;
  *
  * <p>You should eventually clear any state you create.
  */
-public class LongRidesSolution {
+public class LongRidesSolution implements Serializable {
 
     private final Source<TaxiRide, ?, ?> source;
     private final Sink<Long> sink;

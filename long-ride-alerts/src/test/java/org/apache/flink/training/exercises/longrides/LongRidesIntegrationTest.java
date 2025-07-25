@@ -18,10 +18,10 @@
 
 package org.apache.flink.training.exercises.longrides;
 
+import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.testing.ComposedPipeline;
@@ -41,7 +41,9 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
 
     private static final int PARALLELISM = 2;
 
-    /** This isn't necessary, but speeds up the tests. */
+    /**
+     * This isn't necessary, but speeds up the tests.
+     */
     @ClassRule
     public static MiniClusterWithClientResource flinkCluster =
             new MiniClusterWithClientResource(
@@ -56,10 +58,10 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide rideStarted = startRide(1, BEGINNING);
         TaxiRide endedOneMinLater = endRide(rideStarted, ONE_MINUTE_LATER);
 
-        ParallelTestSource source =
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier = () ->
                 new ParallelTestSource(rideStarted, endedOneMinLater);
 
-        assertThat(results(source)).isEmpty();
+        assertThat(results(sourceSupplier)).isEmpty();
     }
 
     @Test
@@ -67,10 +69,10 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide rideStarted = startRide(1, BEGINNING);
         TaxiRide endedOneMinLater = endRide(rideStarted, ONE_MINUTE_LATER);
 
-        ParallelTestSource<TaxiRide> source =
-                new ParallelTestSource<>(endedOneMinLater, rideStarted);
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier = () ->
+                new ParallelTestSource(endedOneMinLater, rideStarted);
 
-        assertThat(results(source)).isEmpty();
+        assertThat(results(sourceSupplier)).isEmpty();
     }
 
     @Test
@@ -83,8 +85,8 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide twoHourRideEnded = endRide(twoHourRide, BEGINNING);
         TaxiRide otherLongRideEnded = endRide(otherLongRide, THREE_HOURS_LATER);
 
-        ParallelTestSource<TaxiRide> source =
-                new ParallelTestSource<>(
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier = () ->
+                new ParallelTestSource(
                         longRideWithoutEnd,
                         twoHourRide,
                         otherLongRide,
@@ -93,22 +95,21 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
                         twoHourRideEnded,
                         otherLongRideEnded);
 
-        assertThat(results(source))
+        assertThat(results(sourceSupplier))
                 .containsExactlyInAnyOrder(longRideWithoutEnd.rideId, otherLongRide.rideId);
     }
 
     private static final ExecutablePipeline<TaxiRide, Long> exercise =
-            (source, sink) -> new LongRidesExercise(source, sink).execute();
+            (sourceSupplier, sink) -> new LongRidesExercise(sourceSupplier.get(), sink).execute();
 
     private static final ExecutablePipeline<TaxiRide, Long> solution =
-            (source, sink) -> new LongRidesSolution(source, sink).execute();
+            (sourceSupplier, sink) -> new LongRidesSolution(sourceSupplier.get(), sink).execute();
 
-    protected List<Long> results(Source<TaxiRide,?,?> source) throws Exception {
-
+    protected List<Long> results(Supplier<Source<TaxiRide, ?, ?>> sourceSupplier) throws Exception {
         TestSink<Long> sink = new TestSink<>();
         ComposedPipeline<TaxiRide, Long> longRidesPipeline =
                 new ComposedPipeline<>(exercise, solution);
-        JobExecutionResult jobResult = longRidesPipeline.execute(source, sink);
+        JobExecutionResult jobResult = longRidesPipeline.execute(sourceSupplier, sink);
         return sink.getResults().stream().toList();
     }
 }
