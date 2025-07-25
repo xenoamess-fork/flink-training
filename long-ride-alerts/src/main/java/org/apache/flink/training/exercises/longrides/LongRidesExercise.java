@@ -23,6 +23,8 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.OpenContext;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -114,19 +116,47 @@ public class LongRidesExercise implements Serializable {
     @VisibleForTesting
     public static class AlertFunction extends KeyedProcessFunction<Long, TaxiRide, Long> {
 
+        private ValueState<TaxiRide> rideState;
+
         @Override
         public void open(OpenContext config) throws Exception {
-            throw new MissingSolutionException();
+            ValueStateDescriptor<TaxiRide> rideStateDescriptor =
+                    new ValueStateDescriptor<>("ride event", TaxiRide.class);
+            rideState = getRuntimeContext().getState(rideStateDescriptor);
         }
 
         @Override
-        public void processElement(TaxiRide ride, Context context, Collector<Long> out)
-                throws Exception {
+        public void processElement(TaxiRide ride, Context context, Collector<Long> out) throws Exception {
+            TaxiRide existedTexiRide = rideState.value();
+            if (existedTexiRide == null) {
+                rideState.update(ride);
+                context.timerService().registerEventTimeTimer(
+                        ride.eventTime.toEpochMilli() + 2 * 60 * 60 * 1000L
+                );
+                return;
+            }
+            if (existedTexiRide.isStart == ride.isStart) {
+                // dirty data, fuck off.
+                return;
+            }
+            long seg = ride.eventTime.toEpochMilli() - existedTexiRide.eventTime.toEpochMilli();
+            if ((ride.isStart ? -seg : seg) > 2 * 60 * 60 * 1000L) {
+                out.collect(ride.rideId);
+            }
+            rideState.clear();
+            context.timerService().deleteEventTimeTimer(existedTexiRide.eventTime.toEpochMilli() + 2 * 60 * 60 * 1000L);
         }
 
         @Override
         public void onTimer(long timestamp, OnTimerContext context, Collector<Long> out)
                 throws Exception {
+            TaxiRide existedTexiRide = rideState.value();
+            if (existedTexiRide != null) {
+                rideState.clear();
+                if (existedTexiRide.isStart) {
+                    out.collect(existedTexiRide.rideId);
+                }
+            }
         }
     }
 }
