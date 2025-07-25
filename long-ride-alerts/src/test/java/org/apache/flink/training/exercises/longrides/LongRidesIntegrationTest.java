@@ -19,6 +19,7 @@
 package org.apache.flink.training.exercises.longrides;
 
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
@@ -102,7 +103,7 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
     private static final ExecutablePipeline<TaxiRide, Long> solution =
             (source, sink) -> new LongRidesSolution(source, sink).execute();
 
-    protected List<Long> results(SourceFunction<TaxiRide> source) throws Exception {
+    protected List<Long> results(Source<TaxiRide,?,?> source) throws Exception {
 
         TestSink<Long> sink = new TestSink<>();
         ComposedPipeline<TaxiRide, Long> longRidesPipeline =
