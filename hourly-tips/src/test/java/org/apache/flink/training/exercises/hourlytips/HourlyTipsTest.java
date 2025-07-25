@@ -19,9 +19,9 @@
 package org.apache.flink.training.exercises.hourlytips;
 
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.training.exercises.common.datatypes.TaxiFare;
 import org.apache.flink.training.exercises.common.utils.DataGenerator;
@@ -126,7 +126,7 @@ public class HourlyTipsTest {
         return new ComposedPipeline<>(exercise, solution);
     }
 
-    protected List<Tuple3<Long, Long, Float>> results(SourceFunction<TaxiFare> source)
+    protected List<Tuple3<Long, Long, Float>> results(Source<TaxiFare,?,?> source)
             throws Exception {
 
         TestSink<Tuple3<Long, Long, Float>> sink = new TestSink<>();

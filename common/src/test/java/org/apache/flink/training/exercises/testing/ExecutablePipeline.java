@@ -18,9 +18,13 @@
 
 package org.apache.flink.training.exercises.testing;
 
+import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
+import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 
 public interface ExecutablePipeline<IN, OUT> {
-    JobExecutionResult execute(SourceFunction<IN> source, TestSink<OUT> sink) throws Exception;
+    JobExecutionResult execute(Supplier<Source<IN, ?, ?>> sourceSupplier, TestSink<OUT> sink) throws Exception;
 }

@@ -55,8 +55,8 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide rideStarted = startRide(1, BEGINNING);
         TaxiRide endedOneMinLater = endRide(rideStarted, ONE_MINUTE_LATER);
 
-        ParallelTestSource<TaxiRide> source =
-                new ParallelTestSource<>(rideStarted, endedOneMinLater);
+        ParallelTestSource source =
+                new ParallelTestSource(rideStarted, endedOneMinLater);
 
         assertThat(results(source)).isEmpty();
     }
@@ -108,6 +108,6 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         ComposedPipeline<TaxiRide, Long> longRidesPipeline =
                 new ComposedPipeline<>(exercise, solution);
         JobExecutionResult jobResult = longRidesPipeline.execute(source, sink);
-        return sink.getResults(jobResult);
+        return sink.getResults().stream().toList();
     }
 }

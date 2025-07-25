@@ -18,7 +18,9 @@
 
 package org.apache.flink.training.exercises.ridecleansing;
 
+import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
@@ -54,20 +56,21 @@ public class RideCleansingIntegrationTest extends RideCleansingTestBase {
         TaxiRide atPennStation = testRide(-73.9947F, 40.750626F, -73.9947F, 40.750626F);
         TaxiRide atNorthPole = testRide(0, 90, 0, 90);
 
-        ParallelTestSource<TaxiRide> source =
-                new ParallelTestSource<>(toThePole, fromThePole, atPennStation, atNorthPole);
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier =
+                ()-> new ParallelTestSource(toThePole, fromThePole, atPennStation, atNorthPole);
         TestSink<TaxiRide> sink = new TestSink<>();
 
-        JobExecutionResult jobResult = rideCleansingPipeline().execute(source, sink);
-        assertThat(sink.getResults(jobResult)).containsExactly(atPennStation);
+        JobExecutionResult jobResult = rideCleansingPipeline().execute(sourceSupplier, sink);
+        jobResult.getJobExecutionResult().getJobExecutionResult();
+        assertThat(sink.getResults()).containsExactly(atPennStation);
     }
 
     protected ComposedPipeline<TaxiRide, TaxiRide> rideCleansingPipeline() {
 
         ExecutablePipeline<TaxiRide, TaxiRide> exercise =
-                (source, sink) -> (new RideCleansingExercise(source, sink)).execute();
+                (sourceSupplier, sink) -> (new RideCleansingExercise(sourceSupplier.get(), sink)).execute();
         ExecutablePipeline<TaxiRide, TaxiRide> solution =
-                (source, sink) -> (new RideCleansingSolution(source, sink)).execute();
+                (sourceSupplier, sink) -> (new RideCleansingSolution(sourceSupplier.get(), sink)).execute();
 
         return new ComposedPipeline<>(exercise, solution);
     }

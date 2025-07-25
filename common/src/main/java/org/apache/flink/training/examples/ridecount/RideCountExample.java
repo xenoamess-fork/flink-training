@@ -18,11 +18,13 @@
 
 package org.apache.flink.training.examples.ridecount;
 
+import java.time.Duration;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
 
@@ -47,7 +49,16 @@ public class RideCountExample {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         // start the data generator
-        DataStream<TaxiRide> rides = env.addSource(new TaxiRideGenerator());
+       DataStream<TaxiRide> rides = env.fromSource(
+                new TaxiRideGenerator(),
+                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(Duration.ofSeconds(10)) {
+
+                    @Override
+                    public long extractTimestamp(TaxiRide taxiRide) {
+                        return taxiRide.eventTime.toEpochMilli();
+                    }
+                }, "taxi ride");
+
 
         // map each ride to a tuple of (driverId, 1)
         DataStream<Tuple2<Long, Long>> tuples =
