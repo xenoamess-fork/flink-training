@@ -20,7 +20,6 @@ public class ParallelTestSource implements Source<TaxiRide, ParallelTestSource.I
 
     private final List<TaxiRide> elements;
 
-    @SafeVarargs
     public ParallelTestSource(TaxiRide... elements)  {
         this(new ArrayList<>(List.of(elements)));
     }
