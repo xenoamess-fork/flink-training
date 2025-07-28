@@ -14,15 +14,15 @@ import java.io.*;
 import java.util.*;
 
 
-public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTestSource.InMemorySplit<TaxiRide>, List<TaxiRide>>, ResultTypeQueryable<TaxiRide> {
+public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMemorySplit<T>, List<T>>, ResultTypeQueryable<T> {
 
-    private final List<TaxiRide> elements;
+    private final List<T> elements;
 
-    public ParallelTestSource(TaxiRide... elements)  {
+    public ParallelTestSource(T... elements)  {
         this(new ArrayList<>(List.of(elements)));
     }
 
-    public ParallelTestSource(List<TaxiRide> elements) {
+    public ParallelTestSource(List<T> elements) {
         this.elements = elements;
     }
 
@@ -33,48 +33,48 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
     }
 
     @Override
-    public SourceReader<TaxiRide, InMemorySplit<TaxiRide>> createReader(SourceReaderContext ctx) {
+    public SourceReader<T, InMemorySplit<T>> createReader(SourceReaderContext ctx) {
         return new InMemoryReader(elements);
     }
 
     @Override
-    public SplitEnumerator<InMemorySplit<TaxiRide>, List<TaxiRide>> createEnumerator(
-            SplitEnumeratorContext<InMemorySplit<TaxiRide>> enumContext) {
+    public SplitEnumerator<InMemorySplit<T>, List<T>> createEnumerator(
+            SplitEnumeratorContext<InMemorySplit<T>> enumContext) {
         return new InMemoryEnumerator<>(enumContext, elements);
     }
 
     @Override
-    public SplitEnumerator<InMemorySplit<TaxiRide>, List<TaxiRide>> restoreEnumerator(
-            SplitEnumeratorContext<InMemorySplit<TaxiRide>> enumContext,
-            List<TaxiRide> checkpoint) {
+    public SplitEnumerator<InMemorySplit<T>, List<T>> restoreEnumerator(
+            SplitEnumeratorContext<InMemorySplit<T>> enumContext,
+            List<T> checkpoint) {
         return new InMemoryEnumerator<>(enumContext, checkpoint);
     }
 
     @Override
-    public SimpleVersionedSerializer<InMemorySplit<TaxiRide>> getSplitSerializer() {
+    public SimpleVersionedSerializer<InMemorySplit<T>> getSplitSerializer() {
         return new InMemorySplitSerializer();
     }
 
     @Override
-    public SimpleVersionedSerializer<List<TaxiRide>> getEnumeratorCheckpointSerializer() {
+    public SimpleVersionedSerializer<List<T>> getEnumeratorCheckpointSerializer() {
         return new CheckpointSerializer<>();
     }
 
     @Override
-    public TypeInformation<TaxiRide> getProducedType() {
+    public TypeInformation<T> getProducedType() {
         //noinspection unchecked
-        return (TypeInformation<TaxiRide>) TypeInformation.of(elements.get(0).getClass());
+        return (TypeInformation<T>) TypeInformation.of(elements.get(0).getClass());
     }
 
 
     /**
      * Split 定义：每个分片只包含一段数据
      */
-    public static class InMemorySplit<TaxiRide> implements SourceSplit, Serializable {
+    public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
-        private final List<TaxiRide> slice;
+        private final List<T> slice;
 
-        InMemorySplit(int splitId, List<TaxiRide> slice) {
+        InMemorySplit(int splitId, List<T> slice) {
             this.splitId = splitId;
             this.slice = new ArrayList<>(slice);
         }
@@ -84,7 +84,7 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
             return "split-" + splitId;
         }
 
-        public List<TaxiRide> getSlice() {
+        public List<T> getSlice() {
             return slice;
         }
     }
@@ -92,13 +92,13 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
     /**
      * SplitEnumerator：把数据平均切成 N 份，N = 并行度
      */
-    public static class InMemoryEnumerator<TaxiRide> implements SplitEnumerator<InMemorySplit<TaxiRide>, List<TaxiRide>> {
+    public static class InMemoryEnumerator<T> implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
-        private final SplitEnumeratorContext<InMemorySplit<TaxiRide>> context;
-        private final List<TaxiRide> elements;
+        private final SplitEnumeratorContext<InMemorySplit<T>> context;
+        private final List<T> elements;
         private boolean assigned = false;
 
-        InMemoryEnumerator(SplitEnumeratorContext<InMemorySplit<TaxiRide>> context, List<TaxiRide> elements) {
+        InMemoryEnumerator(SplitEnumeratorContext<InMemorySplit<T>> context, List<T> elements) {
             this.context = context;
             this.elements = elements;
         }
@@ -112,7 +112,7 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
         }
 
         @Override
-        public void addSplitsBack(List<InMemorySplit<TaxiRide>> splits, int subtaskId) {
+        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {
         }
 
         @Override
@@ -131,13 +131,13 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
                 int from = i * step;
                 int to = Math.min(from + step, elements.size());
                 if (from >= to) break;
-                InMemorySplit<TaxiRide> split = new InMemorySplit<>(i, elements.subList(from, to));
+                InMemorySplit<T> split = new InMemorySplit<>(i, elements.subList(from, to));
                 context.assignSplit(split, i);
             }
         }
 
         @Override
-        public List<TaxiRide> snapshotState(long checkpointId) {
+        public List<T> snapshotState(long checkpointId) {
             return elements;
         }
 
@@ -149,13 +149,13 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
     /**
      * SourceReader：真正读取数据
      */
-    public static class InMemoryReader<TaxiRide> implements SourceReader<TaxiRide, InMemorySplit<TaxiRide>> {
+    public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
-        private final List<TaxiRide> allElements;
-        private final Queue<TaxiRide> remaining = new ArrayDeque<>();
+        private final List<T> allElements;
+        private final Queue<T> remaining = new ArrayDeque<>();
         private final AtomicBoolean initialized = new AtomicBoolean(false);
 
-        public InMemoryReader(List<TaxiRide> allElements) {
+        public InMemoryReader(List<T> allElements) {
             this.allElements = allElements;
         }
 
@@ -164,11 +164,11 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
         }
 
         @Override
-        public InputStatus pollNext(ReaderOutput<TaxiRide> output) {
+        public InputStatus pollNext(ReaderOutput<T> output) {
             if (! initialized.get()){
                          return InputStatus.MORE_AVAILABLE;
             }
-            TaxiRide next = remaining.poll();
+            T next = remaining.poll();
             if (next != null) {
                 output.collect(next);
                 return InputStatus.MORE_AVAILABLE;
@@ -178,7 +178,7 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
         }
 
         @Override
-        public List<InMemorySplit<TaxiRide>> snapshotState(long checkpointId) {
+        public List<InMemorySplit<T>> snapshotState(long checkpointId) {
             return Collections.emptyList();
         }
 
@@ -188,8 +188,8 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
         }
 
         @Override
-        public void addSplits(List<InMemorySplit<TaxiRide>> splits) {
-            for (InMemorySplit<TaxiRide> split : splits) {
+        public void addSplits(List<InMemorySplit<T>> splits) {
+            for (InMemorySplit<T> split : splits) {
                 remaining.addAll(split.getSlice());
                 initialized.set(true);
             }
@@ -208,7 +208,7 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
        序列化器（简单实现，实际生产可优化）
        ------------------------------------------------------------- */
 
-    public static class InMemorySplitSerializer<TaxiRide> implements SimpleVersionedSerializer<InMemorySplit<TaxiRide>> {
+    public static class InMemorySplitSerializer<T> implements SimpleVersionedSerializer<InMemorySplit<T>> {
         // 这里简化：仅支持 String，生产环境请用 Kryo/Avro/Protobuf
         @Override
         public int getVersion() {
@@ -224,28 +224,28 @@ public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTe
         }
 
         @Override
-        public InMemorySplit<TaxiRide> deserialize(int version, byte[] serialized) throws IOException {
+        public InMemorySplit<T> deserialize(int version, byte[] serialized) throws IOException {
             try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
-                return (InMemorySplit<TaxiRide>) ois.readObject();
+                return (InMemorySplit<T>) ois.readObject();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);
             }
         }
     }
 
-    public static class CheckpointSerializer<TaxiRide> implements SimpleVersionedSerializer<List<TaxiRide>> {
+    public static class CheckpointSerializer<T> implements SimpleVersionedSerializer<List<T>> {
         @Override
         public int getVersion() {
             return 1;
         }
 
         @Override
-        public byte[] serialize(List<TaxiRide> obj) throws IOException {
+        public byte[] serialize(List<T> obj) throws IOException {
             return new byte[0];
         }
 
         @Override
-        public List<TaxiRide> deserialize(int version, byte[] serialized) {
+        public List<T> deserialize(int version, byte[] serialized) {
             return Collections.emptyList();
         }
     }
