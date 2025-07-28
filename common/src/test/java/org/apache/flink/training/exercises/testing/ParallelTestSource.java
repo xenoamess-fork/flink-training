@@ -99,7 +99,9 @@ public class ParallelTestSource<T>
         return (TypeInformation<T>) TypeInformation.of(elements.get(0).getClass());
     }
 
-    /** Split definition for in-memory data. */
+    /**
+     * Split definition for in-memory data.
+     */
     public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
         private final List<T> slice;
@@ -119,7 +121,9 @@ public class ParallelTestSource<T>
         }
     }
 
-    /** SplitEnumerator：split data. */
+    /**
+     * SplitEnumerator：split data.
+     */
     public static class InMemoryEnumerator<T>
             implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
@@ -133,17 +137,19 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void start() {}
+        public void start() {
+        }
 
         @Override
-        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {}
+        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
+        }
 
         @Override
-        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {}
+        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {
+        }
 
         @Override
         public void addReader(int subtaskId) {
-            // 当所有 reader 都注册后一次性分配
             if (!assigned && context.registeredReaders().size() == context.currentParallelism()) {
                 assignSplits();
                 assigned = true;
@@ -157,6 +163,11 @@ public class ParallelTestSource<T>
                 int from = i * step;
                 int to = Math.min(from + step, elements.size());
                 if (from >= to) {
+                    while (i < parallelism) {
+                        InMemorySplit<T> split = new InMemorySplit<>(i, List.of());
+                        context.assignSplit(split, i);
+                        i++;
+                    }
                     break;
                 }
                 InMemorySplit<T> split = new InMemorySplit<>(i, elements.subList(from, to));
@@ -170,10 +181,13 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void close() {}
+        public void close() {
+        }
     }
 
-    /** SourceReader: read data. */
+    /**
+     * SourceReader: read data.
+     */
     public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
         private final List<T> allElements;
@@ -185,7 +199,8 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void start() {}
+        public void start() {
+        }
 
         @Override
         public InputStatus pollNext(ReaderOutput<T> output) {
@@ -215,24 +230,21 @@ public class ParallelTestSource<T>
         public void addSplits(List<InMemorySplit<T>> splits) {
             for (InMemorySplit<T> split : splits) {
                 remaining.addAll(split.getSlice());
-                initialized.set(true);
             }
+            initialized.set(true);
         }
 
         @Override
-        public void notifyNoMoreSplits() {}
+        public void notifyNoMoreSplits() {
+        }
 
         @Override
-        public void close() {}
+        public void close() {
+        }
     }
-
-    /* -------------------------------------------------------------
-    序列化器（简单实现，实际生产可优化）
-    ------------------------------------------------------------- */
 
     public static class InMemorySplitSerializer<T>
             implements SimpleVersionedSerializer<InMemorySplit<T>> {
-        // 这里简化：仅支持 String，生产环境请用 Kryo/Avro/Protobuf
         @Override
         public int getVersion() {
             return 1;
@@ -249,7 +261,7 @@ public class ParallelTestSource<T>
         @Override
         public InMemorySplit<T> deserialize(int version, byte[] serialized) throws IOException {
             try (ObjectInputStream ois =
-                    new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+                         new ObjectInputStream(new ByteArrayInputStream(serialized))) {
                 return (InMemorySplit<T>) ois.readObject();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);
