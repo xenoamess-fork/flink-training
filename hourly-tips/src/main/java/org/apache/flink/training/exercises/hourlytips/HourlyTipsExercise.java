@@ -18,18 +18,15 @@
 
 package org.apache.flink.training.exercises.hourlytips;
 
+import java.io.Serializable;
 import java.time.Duration;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.PrintSink;
-import org.apache.flink.streaming.api.functions.sink.legacy.PrintSinkFunction;
-import org.apache.flink.streaming.api.functions.sink.legacy.SinkFunction;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.training.exercises.common.datatypes.TaxiFare;
 import org.apache.flink.training.exercises.common.sources.TaxiFareGenerator;
@@ -41,7 +38,7 @@ import org.apache.flink.training.exercises.common.utils.MissingSolutionException
  * <p>The task of the exercise is to first calculate the total tips collected by each driver, hour
  * by hour, and then from that stream, find the highest tip total in each hour.
  */
-public class HourlyTipsExercise {
+public class HourlyTipsExercise implements Serializable {
 
     private final Source<TaxiFare, ?, ?> source;
     private final Sink<Tuple3<Long, Long, Float>> sink;
