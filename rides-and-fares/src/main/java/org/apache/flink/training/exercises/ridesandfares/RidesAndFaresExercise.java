@@ -20,8 +20,13 @@ package org.apache.flink.training.exercises.ridesandfares;
 
 import java.io.Serializable;
 import java.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.functions.OpenContext;
+import org.apache.flink.api.common.state.MapState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -49,7 +54,9 @@ public class RidesAndFaresExercise implements Serializable {
     private final Source<TaxiFare, ?, ?> fareSource;
     private final Sink<RideAndFare> sink;
 
-    /** Creates a job using the sources and sink provided. */
+    /**
+     * Creates a job using the sources and sink provided.
+     */
     public RidesAndFaresExercise(
             Source<TaxiRide, ?, ?> rideSource,
             Source<TaxiFare, ?, ?> fareSource,
@@ -63,8 +70,8 @@ public class RidesAndFaresExercise implements Serializable {
     /**
      * Creates and executes the pipeline using the StreamExecutionEnvironment provided.
      *
-     * @throws Exception which occurs during job execution.
      * @return {JobExecutionResult}
+     * @throws Exception which occurs during job execution.
      */
     public JobExecutionResult execute() throws Exception {
 
@@ -86,7 +93,7 @@ public class RidesAndFaresExercise implements Serializable {
         // A stream of taxi fare events, also keyed by rideId.
         KeyedStream<TaxiFare, Long> fares = env.fromSource(
                 fareSource,
-                     new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(Duration.ofSeconds(10)) {
+                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(Duration.ofSeconds(10)) {
 
                     @Override
                     public long extractTimestamp(TaxiFare taxiFare) {
@@ -124,19 +131,44 @@ public class RidesAndFaresExercise implements Serializable {
     public static class EnrichmentFunction
             extends RichCoFlatMapFunction<TaxiRide, TaxiFare, RideAndFare> {
 
+        private MapState<Long, Pair<TaxiRide, TaxiFare>> rideState;
+
         @Override
         public void open(OpenContext config) throws Exception {
-            throw new MissingSolutionException();
+            MapStateDescriptor<Long, Pair<TaxiRide, TaxiFare>> rideStateDescriptor =
+                    (MapStateDescriptor<Long, Pair<TaxiRide, TaxiFare>>) (MapStateDescriptor) new MapStateDescriptor<>("ride event", Long.class, Pair.class);
+            rideState = getRuntimeContext().getMapState(rideStateDescriptor);
         }
 
         @Override
         public void flatMap1(TaxiRide ride, Collector<RideAndFare> out) throws Exception {
-            throw new MissingSolutionException();
+            if (!ride.isStart) {
+                return;
+            }
+            Pair<TaxiRide, TaxiFare> value = rideState.get(ride.rideId);
+            if (value == null) {
+                rideState.put(ride.rideId, Pair.of(ride, null));
+                return;
+            }
+            if (value.getRight() != null) {
+                out.collect(new RideAndFare(ride, value.getRight()));
+                rideState.remove(ride.rideId);
+                return;
+            }
         }
 
         @Override
         public void flatMap2(TaxiFare fare, Collector<RideAndFare> out) throws Exception {
-            throw new MissingSolutionException();
+            Pair<TaxiRide, TaxiFare> value = rideState.get(fare.rideId);
+            if (value == null) {
+                rideState.put(fare.rideId, Pair.of(null, fare));
+                return;
+            }
+            if (value.getLeft() != null) {
+                out.collect(new RideAndFare(value.getLeft(), fare));
+                rideState.remove(fare.rideId);
+                return;
+            }
         }
     }
 }
