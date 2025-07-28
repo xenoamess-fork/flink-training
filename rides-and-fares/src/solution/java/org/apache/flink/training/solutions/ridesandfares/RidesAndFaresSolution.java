@@ -94,7 +94,7 @@ public class RidesAndFaresSolution implements Serializable {
                         return taxiFare.getEventTimeMillis();
                     }
 
-                }, "fare ride"
+                }, "taxi fare"
         ).keyBy(fare -> fare.rideId);
 
         // Create the pipeline.
