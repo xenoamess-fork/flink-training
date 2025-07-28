@@ -95,9 +95,4 @@ public class TaxiRideGenerator extends DataGeneratorSource<TaxiRide> {
         }, Long.MAX_VALUE, RateLimiterStrategy.perSecond(200), TypeInformation.of(TaxiRide.class));
     }
 
-    @Override
-    public Boundedness getBoundedness() {
-        return CONTINUOUS_UNBOUNDED;
-    }
-
 }

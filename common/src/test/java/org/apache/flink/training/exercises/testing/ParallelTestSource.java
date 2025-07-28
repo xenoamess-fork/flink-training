@@ -2,21 +2,19 @@ package org.apache.flink.training.exercises.testing;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.*;
+import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.datastream.DataStream;
 
 import javax.annotation.Nullable;
 
 import java.io.*;
 import java.util.*;
-import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 
 
-public class ParallelTestSource implements Source<TaxiRide, ParallelTestSource.InMemorySplit<TaxiRide>, List<TaxiRide>> {
+public class ParallelTestSource<TaxiRide> implements Source<TaxiRide, ParallelTestSource.InMemorySplit<TaxiRide>, List<TaxiRide>>, ResultTypeQueryable<TaxiRide> {
 
     private final List<TaxiRide> elements;
 
@@ -60,6 +58,12 @@ public class ParallelTestSource implements Source<TaxiRide, ParallelTestSource.I
     @Override
     public SimpleVersionedSerializer<List<TaxiRide>> getEnumeratorCheckpointSerializer() {
         return new CheckpointSerializer<>();
+    }
+
+    @Override
+    public TypeInformation<TaxiRide> getProducedType() {
+        //noinspection unchecked
+        return (TypeInformation<TaxiRide>) TypeInformation.of(elements.get(0).getClass());
     }
 
 
@@ -145,7 +149,7 @@ public class ParallelTestSource implements Source<TaxiRide, ParallelTestSource.I
     /**
      * SourceReader：真正读取数据
      */
-    public static class InMemoryReader implements SourceReader<TaxiRide, InMemorySplit<TaxiRide>> {
+    public static class InMemoryReader<TaxiRide> implements SourceReader<TaxiRide, InMemorySplit<TaxiRide>> {
 
         private final List<TaxiRide> allElements;
         private final Queue<TaxiRide> remaining = new ArrayDeque<>();
@@ -204,7 +208,7 @@ public class ParallelTestSource implements Source<TaxiRide, ParallelTestSource.I
        序列化器（简单实现，实际生产可优化）
        ------------------------------------------------------------- */
 
-    public static class InMemorySplitSerializer implements SimpleVersionedSerializer<InMemorySplit<TaxiRide>> {
+    public static class InMemorySplitSerializer<TaxiRide> implements SimpleVersionedSerializer<InMemorySplit<TaxiRide>> {
         // 这里简化：仅支持 String，生产环境请用 Kryo/Avro/Protobuf
         @Override
         public int getVersion() {

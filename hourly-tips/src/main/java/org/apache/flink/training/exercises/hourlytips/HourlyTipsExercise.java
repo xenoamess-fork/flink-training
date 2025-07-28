@@ -19,6 +19,7 @@
 package org.apache.flink.training.exercises.hourlytips;
 
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -37,7 +38,7 @@ import org.apache.flink.training.exercises.common.utils.MissingSolutionException
  */
 public class HourlyTipsExercise {
 
-    private final SourceFunction<TaxiFare> source;
+    private final Source<TaxiFare> source;
     private final SinkFunction<Tuple3<Long, Long, Float>> sink;
 
     /** Creates a job using the source and sink provided. */
