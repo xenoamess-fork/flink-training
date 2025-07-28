@@ -99,9 +99,7 @@ public class ParallelTestSource<T>
         return (TypeInformation<T>) TypeInformation.of(elements.get(0).getClass());
     }
 
-    /**
-     * Split definition for in-memory data.
-     */
+    /** Split definition for in-memory data. */
     public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
         private final List<T> slice;
@@ -121,9 +119,7 @@ public class ParallelTestSource<T>
         }
     }
 
-    /**
-     * SplitEnumerator：split data.
-     */
+    /** SplitEnumerator：split data. */
     public static class InMemoryEnumerator<T>
             implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
@@ -137,16 +133,13 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
-        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
-        }
+        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {}
 
         @Override
-        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {
-        }
+        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {}
 
         @Override
         public void addReader(int subtaskId) {
@@ -181,13 +174,10 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
-    /**
-     * SourceReader: read data.
-     */
+    /** SourceReader: read data. */
     public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
         private final List<T> allElements;
@@ -199,8 +189,7 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
         public InputStatus pollNext(ReaderOutput<T> output) {
@@ -235,12 +224,10 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void notifyNoMoreSplits() {
-        }
+        public void notifyNoMoreSplits() {}
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
     public static class InMemorySplitSerializer<T>
@@ -261,7 +248,7 @@ public class ParallelTestSource<T>
         @Override
         public InMemorySplit<T> deserialize(int version, byte[] serialized) throws IOException {
             try (ObjectInputStream ois =
-                         new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+                    new ObjectInputStream(new ByteArrayInputStream(serialized))) {
                 return (InMemorySplit<T>) ois.readObject();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);
