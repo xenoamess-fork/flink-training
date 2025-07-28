@@ -70,13 +70,7 @@ public class TestSink<OUT> implements Sink<OUT> {
 
         @Override
         public void write(OUT element, Context context) throws IOException, InterruptedException {
-            RESULTS.computeIfAbsent(
-                            valueUuId,
-                            k ->
-                                    new ConcurrentLinkedQueue<>( // Initialize with an empty list to
-                                            // avoid null checks
-                                            ))
-                    .add(element);
+            RESULTS.computeIfAbsent(valueUuId, k -> new ConcurrentLinkedQueue<>()).add(element);
         }
 
         @Override

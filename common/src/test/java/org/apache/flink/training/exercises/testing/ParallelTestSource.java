@@ -19,15 +19,31 @@
 package org.apache.flink.training.exercises.testing;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.connector.source.*;
+import org.apache.flink.api.connector.source.Boundedness;
+import org.apache.flink.api.connector.source.ReaderOutput;
+import org.apache.flink.api.connector.source.Source;
+import org.apache.flink.api.connector.source.SourceReader;
+import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.api.connector.source.SourceSplit;
+import org.apache.flink.api.connector.source.SplitEnumerator;
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import javax.annotation.Nullable;
 
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -83,7 +99,7 @@ public class ParallelTestSource<T>
         return (TypeInformation<T>) TypeInformation.of(elements.get(0).getClass());
     }
 
-    /** Split 定义：每个分片只包含一段数据 */
+    /** Split definition for in-memory data. */
     public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
         private final List<T> slice;
@@ -103,7 +119,7 @@ public class ParallelTestSource<T>
         }
     }
 
-    /** SplitEnumerator：把数据平均切成 N 份，N = 并行度 */
+    /** SplitEnumerator：split data. */
     public static class InMemoryEnumerator<T>
             implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
@@ -140,7 +156,9 @@ public class ParallelTestSource<T>
             for (int i = 0; i < parallelism; i++) {
                 int from = i * step;
                 int to = Math.min(from + step, elements.size());
-                if (from >= to) break;
+                if (from >= to) {
+                    break;
+                }
                 InMemorySplit<T> split = new InMemorySplit<>(i, elements.subList(from, to));
                 context.assignSplit(split, i);
             }
@@ -155,7 +173,7 @@ public class ParallelTestSource<T>
         public void close() {}
     }
 
-    /** SourceReader：真正读取数据 */
+    /** SourceReader: read data. */
     public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
         private final List<T> allElements;
