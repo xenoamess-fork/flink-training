@@ -78,7 +78,7 @@ public class LongRidesSolution implements Serializable {
 
                     @Override
                     public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.eventTime.toEpochMilli();
+                        return taxiRide.getEventTimeMillis();
                     }
 
                 }, "taxi ride");

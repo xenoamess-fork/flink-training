@@ -86,7 +86,7 @@ public class RideCleansingSolution {
 
                     @Override
                     public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.eventTime.toEpochMilli();
+                        return taxiRide.getEventTimeMillis();
                     }
                 }, "taxi ride").filter(new RideCleansingExercise.NYCFilter()).sinkTo(sink);
 

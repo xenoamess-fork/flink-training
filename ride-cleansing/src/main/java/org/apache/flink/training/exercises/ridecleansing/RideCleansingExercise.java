@@ -80,7 +80,7 @@ public class RideCleansingExercise implements Serializable {
 
                     @Override
                     public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.eventTime.toEpochMilli();
+                        return taxiRide.getEventTimeMillis();
                     }
 
                 }, "taxi ride").filter(new NYCFilter()).sinkTo(sink);

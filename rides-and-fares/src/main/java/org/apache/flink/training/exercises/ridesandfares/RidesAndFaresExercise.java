@@ -78,7 +78,7 @@ public class RidesAndFaresExercise implements Serializable {
 
                     @Override
                     public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.eventTime.toEpochMilli();
+                        return taxiRide.getEventTimeMillis();
                     }
 
                 }, "taxi ride").filter(ride -> ride.isStart).keyBy(ride -> ride.rideId);
