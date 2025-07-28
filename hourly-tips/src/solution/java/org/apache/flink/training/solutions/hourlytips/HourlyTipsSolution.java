@@ -18,7 +18,6 @@
 
 package org.apache.flink.training.solutions.hourlytips;
 
-import java.io.Serializable;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.connector.sink2.Sink;
@@ -35,6 +34,7 @@ import org.apache.flink.training.exercises.common.datatypes.TaxiFare;
 import org.apache.flink.training.exercises.common.sources.TaxiFareGenerator;
 import org.apache.flink.util.Collector;
 
+import java.io.Serializable;
 import java.time.Duration;
 
 /**
@@ -48,11 +48,8 @@ public class HourlyTipsSolution implements Serializable {
     private final Source<TaxiFare, ?, ?> source;
     private final Sink<Tuple3<Long, Long, Float>> sink;
 
-    /**
-     * Creates a job using the source and sink provided.
-     */
-    public HourlyTipsSolution(
-            Source<TaxiFare, ?, ?> source, Sink<Tuple3<Long, Long, Float>> sink) {
+    /** Creates a job using the source and sink provided. */
+    public HourlyTipsSolution(Source<TaxiFare, ?, ?> source, Sink<Tuple3<Long, Long, Float>> sink) {
 
         this.source = source;
         this.sink = sink;
@@ -65,8 +62,7 @@ public class HourlyTipsSolution implements Serializable {
      */
     public static void main(String[] args) throws Exception {
 
-        HourlyTipsSolution job =
-                new HourlyTipsSolution(new TaxiFareGenerator(), new PrintSink<>());
+        HourlyTipsSolution job = new HourlyTipsSolution(new TaxiFareGenerator(), new PrintSink<>());
 
         job.execute();
     }
@@ -86,16 +82,15 @@ public class HourlyTipsSolution implements Serializable {
         DataStream<TaxiFare> fares =
                 env.fromSource(
                                 source,
-                                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(Duration.ofSeconds(10)) {
+                                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(
+                                        Duration.ofSeconds(10)) {
 
                                     @Override
                                     public long extractTimestamp(TaxiFare taxiFare) {
                                         return taxiFare.getEventTimeMillis();
                                     }
-
                                 },
-                                "taxi fare"
-                        )
+                                "taxi fare")
                         .assignTimestampsAndWatermarks(
                                 // taxi fares are in order
                                 WatermarkStrategy.<TaxiFare>forMonotonousTimestamps()

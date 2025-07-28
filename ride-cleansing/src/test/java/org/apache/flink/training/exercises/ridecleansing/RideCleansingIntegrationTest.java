@@ -18,7 +18,6 @@
 
 package org.apache.flink.training.exercises.ridecleansing;
 
-import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -32,6 +31,8 @@ import org.apache.flink.training.solutions.ridecleansing.RideCleansingSolution;
 
 import org.junit.ClassRule;
 import org.junit.Test;
+
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
@@ -57,7 +58,7 @@ public class RideCleansingIntegrationTest extends RideCleansingTestBase {
         TaxiRide atNorthPole = testRide(0, 90, 0, 90);
 
         Supplier<Source<TaxiRide, ?, ?>> sourceSupplier =
-                ()-> new ParallelTestSource(toThePole, fromThePole, atPennStation, atNorthPole);
+                () -> new ParallelTestSource(toThePole, fromThePole, atPennStation, atNorthPole);
         TestSink<TaxiRide> sink = new TestSink<>();
 
         JobExecutionResult jobResult = rideCleansingPipeline().execute(sourceSupplier, sink);
@@ -68,9 +69,11 @@ public class RideCleansingIntegrationTest extends RideCleansingTestBase {
     protected ComposedPipeline<TaxiRide, TaxiRide> rideCleansingPipeline() {
 
         ExecutablePipeline<TaxiRide, TaxiRide> exercise =
-                (sourceSupplier, sink) -> (new RideCleansingExercise(sourceSupplier.get(), sink)).execute();
+                (sourceSupplier, sink) ->
+                        (new RideCleansingExercise(sourceSupplier.get(), sink)).execute();
         ExecutablePipeline<TaxiRide, TaxiRide> solution =
-                (sourceSupplier, sink) -> (new RideCleansingSolution(sourceSupplier.get(), sink)).execute();
+                (sourceSupplier, sink) ->
+                        (new RideCleansingSolution(sourceSupplier.get(), sink)).execute();
 
         return new ComposedPipeline<>(exercise, solution);
     }

@@ -18,21 +18,19 @@
 
 package org.apache.flink.training.solutions.ridecleansing;
 
-import java.time.Duration;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.PrintSink;
-import org.apache.flink.streaming.api.functions.sink.legacy.PrintSinkFunction;
-import org.apache.flink.streaming.api.functions.sink.legacy.SinkFunction;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
 import org.apache.flink.training.exercises.common.utils.GeoUtils;
 import org.apache.flink.training.exercises.ridecleansing.RideCleansingExercise;
+
+import java.time.Duration;
 
 /**
  * Solution to the Ride Cleansing exercise from the Flink training.
@@ -45,13 +43,8 @@ public class RideCleansingSolution {
     private final Source<TaxiRide, ?, ?> source;
     private final Sink<TaxiRide> sink;
 
-    /**
-     * Creates a job using the source and sink provided.
-     */
-    public RideCleansingSolution(
-            Source<TaxiRide, ?, ?> source,
-            Sink<TaxiRide> sink
-    ) {
+    /** Creates a job using the source and sink provided. */
+    public RideCleansingSolution(Source<TaxiRide, ?, ?> source, Sink<TaxiRide> sink) {
         this.source = source;
         this.sink = sink;
     }
@@ -81,22 +74,24 @@ public class RideCleansingSolution {
 
         // set up the pipeline
         env.fromSource(
-                source,
-                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(Duration.ofSeconds(10)) {
+                        source,
+                        new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(
+                                Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.getEventTimeMillis();
-                    }
-                }, "taxi ride").filter(new RideCleansingExercise.NYCFilter()).sinkTo(sink);
+                            @Override
+                            public long extractTimestamp(TaxiRide taxiRide) {
+                                return taxiRide.getEventTimeMillis();
+                            }
+                        },
+                        "taxi ride")
+                .filter(new RideCleansingExercise.NYCFilter())
+                .sinkTo(sink);
 
         // run the pipeline and return the result
         return env.execute("Taxi Ride Cleansing");
     }
 
-    /**
-     * Keep only those rides and both start and end in NYC.
-     */
+    /** Keep only those rides and both start and end in NYC. */
     public static class NYCFilter implements FilterFunction<TaxiRide> {
         @Override
         public boolean filter(TaxiRide taxiRide) {

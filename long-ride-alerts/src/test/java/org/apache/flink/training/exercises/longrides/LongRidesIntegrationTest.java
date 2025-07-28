@@ -18,7 +18,6 @@
 
 package org.apache.flink.training.exercises.longrides;
 
-import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -34,6 +33,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
@@ -41,9 +41,7 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
 
     private static final int PARALLELISM = 2;
 
-    /**
-     * This isn't necessary, but speeds up the tests.
-     */
+    /** This isn't necessary, but speeds up the tests. */
     @ClassRule
     public static MiniClusterWithClientResource flinkCluster =
             new MiniClusterWithClientResource(
@@ -58,8 +56,8 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide rideStarted = startRide(1, BEGINNING);
         TaxiRide endedOneMinLater = endRide(rideStarted, ONE_MINUTE_LATER);
 
-        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier = () ->
-                new ParallelTestSource(rideStarted, endedOneMinLater);
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier =
+                () -> new ParallelTestSource(rideStarted, endedOneMinLater);
 
         assertThat(results(sourceSupplier)).isEmpty();
     }
@@ -69,8 +67,8 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide rideStarted = startRide(1, BEGINNING);
         TaxiRide endedOneMinLater = endRide(rideStarted, ONE_MINUTE_LATER);
 
-        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier = () ->
-                new ParallelTestSource(endedOneMinLater, rideStarted);
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier =
+                () -> new ParallelTestSource(endedOneMinLater, rideStarted);
 
         assertThat(results(sourceSupplier)).isEmpty();
     }
@@ -85,15 +83,16 @@ public class LongRidesIntegrationTest extends LongRidesTestBase {
         TaxiRide twoHourRideEnded = endRide(twoHourRide, BEGINNING);
         TaxiRide otherLongRideEnded = endRide(otherLongRide, THREE_HOURS_LATER);
 
-        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier = () ->
-                new ParallelTestSource(
-                        longRideWithoutEnd,
-                        twoHourRide,
-                        otherLongRide,
-                        shortRide,
-                        shortRideEnded,
-                        twoHourRideEnded,
-                        otherLongRideEnded);
+        Supplier<Source<TaxiRide, ?, ?>> sourceSupplier =
+                () ->
+                        new ParallelTestSource(
+                                longRideWithoutEnd,
+                                twoHourRide,
+                                otherLongRide,
+                                shortRide,
+                                shortRideEnded,
+                                twoHourRideEnded,
+                                otherLongRideEnded);
 
         assertThat(results(sourceSupplier))
                 .containsExactlyInAnyOrder(longRideWithoutEnd.rideId, otherLongRide.rideId);

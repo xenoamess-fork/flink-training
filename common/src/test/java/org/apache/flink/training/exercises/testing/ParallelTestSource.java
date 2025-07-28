@@ -1,7 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.flink.training.exercises.testing;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.*;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
@@ -12,13 +28,15 @@ import javax.annotation.Nullable;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-
-public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMemorySplit<T>, List<T>>, ResultTypeQueryable<T> {
+public class ParallelTestSource<T>
+        implements Source<T, ParallelTestSource.InMemorySplit<T>, List<T>>, ResultTypeQueryable<T> {
 
     private final List<T> elements;
 
-    public ParallelTestSource(T... elements)  {
+    public ParallelTestSource(T... elements) {
         this(new ArrayList<>(List.of(elements)));
     }
 
@@ -45,8 +63,7 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
 
     @Override
     public SplitEnumerator<InMemorySplit<T>, List<T>> restoreEnumerator(
-            SplitEnumeratorContext<InMemorySplit<T>> enumContext,
-            List<T> checkpoint) {
+            SplitEnumeratorContext<InMemorySplit<T>> enumContext, List<T> checkpoint) {
         return new InMemoryEnumerator<>(enumContext, checkpoint);
     }
 
@@ -66,10 +83,7 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
         return (TypeInformation<T>) TypeInformation.of(elements.get(0).getClass());
     }
 
-
-    /**
-     * Split 定义：每个分片只包含一段数据
-     */
+    /** Split 定义：每个分片只包含一段数据 */
     public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
         private final List<T> slice;
@@ -89,10 +103,9 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
         }
     }
 
-    /**
-     * SplitEnumerator：把数据平均切成 N 份，N = 并行度
-     */
-    public static class InMemoryEnumerator<T> implements SplitEnumerator<InMemorySplit<T>, List<T>> {
+    /** SplitEnumerator：把数据平均切成 N 份，N = 并行度 */
+    public static class InMemoryEnumerator<T>
+            implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
         private final SplitEnumeratorContext<InMemorySplit<T>> context;
         private final List<T> elements;
@@ -104,16 +117,13 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
         }
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
-        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
-        }
+        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {}
 
         @Override
-        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {
-        }
+        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {}
 
         @Override
         public void addReader(int subtaskId) {
@@ -142,13 +152,10 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
-    /**
-     * SourceReader：真正读取数据
-     */
+    /** SourceReader：真正读取数据 */
     public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
         private final List<T> allElements;
@@ -160,13 +167,12 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
         }
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
         public InputStatus pollNext(ReaderOutput<T> output) {
-            if (! initialized.get()){
-                         return InputStatus.MORE_AVAILABLE;
+            if (!initialized.get()) {
+                return InputStatus.MORE_AVAILABLE;
             }
             T next = remaining.poll();
             if (next != null) {
@@ -196,19 +202,18 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
         }
 
         @Override
-        public void notifyNoMoreSplits() {
-        }
+        public void notifyNoMoreSplits() {}
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
     /* -------------------------------------------------------------
-       序列化器（简单实现，实际生产可优化）
-       ------------------------------------------------------------- */
+    序列化器（简单实现，实际生产可优化）
+    ------------------------------------------------------------- */
 
-    public static class InMemorySplitSerializer<T> implements SimpleVersionedSerializer<InMemorySplit<T>> {
+    public static class InMemorySplitSerializer<T>
+            implements SimpleVersionedSerializer<InMemorySplit<T>> {
         // 这里简化：仅支持 String，生产环境请用 Kryo/Avro/Protobuf
         @Override
         public int getVersion() {
@@ -225,7 +230,8 @@ public class ParallelTestSource<T> implements Source<T, ParallelTestSource.InMem
 
         @Override
         public InMemorySplit<T> deserialize(int version, byte[] serialized) throws IOException {
-            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            try (ObjectInputStream ois =
+                    new ObjectInputStream(new ByteArrayInputStream(serialized))) {
                 return (InMemorySplit<T>) ois.readObject();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);

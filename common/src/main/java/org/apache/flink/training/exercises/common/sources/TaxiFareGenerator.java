@@ -18,8 +18,6 @@
 
 package org.apache.flink.training.exercises.common.sources;
 
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.util.ratelimit.RateLimiterStrategy;
 import org.apache.flink.connector.datagen.source.DataGeneratorSource;
@@ -27,6 +25,8 @@ import org.apache.flink.connector.datagen.source.GeneratorFunction;
 import org.apache.flink.training.exercises.common.datatypes.TaxiFare;
 
 import java.time.Instant;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This SourceFunction generates a data stream of TaxiFare records.
@@ -37,6 +37,11 @@ public class TaxiFareGenerator extends DataGeneratorSource<TaxiFare> {
 
     private static Instant limitingTimestamp = Instant.MAX;
 
+    /**
+     * build taxi fare deque.
+     *
+     * @return taxiFareDeque
+     */
     public static ConcurrentLinkedDeque<TaxiFare> buildTaxiFareDeque() {
         ConcurrentLinkedDeque<TaxiFare> taxiFareDeque = new ConcurrentLinkedDeque<>();
         for (int i = 1; ; i++) {
@@ -50,23 +55,32 @@ public class TaxiFareGenerator extends DataGeneratorSource<TaxiFare> {
         return taxiFareDeque;
     }
 
+    /** TaxiFareGenerator. */
     public TaxiFareGenerator() {
         this(buildTaxiFareDeque());
     }
 
+    /**
+     * TaxiFareGenerator.
+     *
+     * @param taxiFareDeque taxiFareDeque
+     */
     public TaxiFareGenerator(ConcurrentLinkedDeque<TaxiFare> taxiFareDeque) {
-        super(new GeneratorFunction<Long, TaxiFare>() {
+        super(
+                new GeneratorFunction<Long, TaxiFare>() {
 
-            private final AtomicLong id = new AtomicLong(0);
-            private final AtomicLong maxStartTime = new AtomicLong(0);
+                    private final AtomicLong id = new AtomicLong(0);
+                    private final AtomicLong maxStartTime = new AtomicLong(0);
 
-            @Override
-            public TaxiFare map(Long value) throws Exception {
-                synchronized (this) {
-                    return taxiFareDeque.poll();
-                }
-            }
-        }, taxiFareDeque.size(), RateLimiterStrategy.perSecond(200), TypeInformation.of(TaxiFare.class));
+                    @Override
+                    public TaxiFare map(Long value) throws Exception {
+                        synchronized (this) {
+                            return taxiFareDeque.poll();
+                        }
+                    }
+                },
+                taxiFareDeque.size(),
+                RateLimiterStrategy.perSecond(200),
+                TypeInformation.of(TaxiFare.class));
     }
-
 }

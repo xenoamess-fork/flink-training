@@ -18,15 +18,10 @@
 
 package org.apache.flink.training.exercises.ridesandfares;
 
-import java.io.Serializable;
-import java.time.Duration;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.api.common.state.ValueState;
-import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -40,8 +35,12 @@ import org.apache.flink.training.exercises.common.datatypes.TaxiFare;
 import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiFareGenerator;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
-import org.apache.flink.training.exercises.common.utils.MissingSolutionException;
 import org.apache.flink.util.Collector;
+
+import org.apache.commons.lang3.tuple.Pair;
+
+import java.io.Serializable;
+import java.time.Duration;
 
 /**
  * The Stateful Enrichment exercise from the Flink training.
@@ -54,9 +53,7 @@ public class RidesAndFaresExercise implements Serializable {
     private final Source<TaxiFare, ?, ?> fareSource;
     private final Sink<RideAndFare> sink;
 
-    /**
-     * Creates a job using the sources and sink provided.
-     */
+    /** Creates a job using the sources and sink provided. */
     public RidesAndFaresExercise(
             Source<TaxiRide, ?, ?> rideSource,
             Source<TaxiFare, ?, ?> fareSource,
@@ -79,34 +76,38 @@ public class RidesAndFaresExercise implements Serializable {
 
         // A stream of taxi ride START events, keyed by rideId.
 
-        DataStream<TaxiRide> rides = env.fromSource(
-                rideSource,
-                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(Duration.ofSeconds(10)) {
+        DataStream<TaxiRide> rides =
+                env.fromSource(
+                                rideSource,
+                                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(
+                                        Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.getEventTimeMillis();
-                    }
-
-                }, "taxi ride").filter(ride -> ride.isStart).keyBy(ride -> ride.rideId);
+                                    @Override
+                                    public long extractTimestamp(TaxiRide taxiRide) {
+                                        return taxiRide.getEventTimeMillis();
+                                    }
+                                },
+                                "taxi ride")
+                        .filter(ride -> ride.isStart)
+                        .keyBy(ride -> ride.rideId);
 
         // A stream of taxi fare events, also keyed by rideId.
-        KeyedStream<TaxiFare, Long> fares = env.fromSource(
-                fareSource,
-                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(Duration.ofSeconds(10)) {
+        KeyedStream<TaxiFare, Long> fares =
+                env.fromSource(
+                                fareSource,
+                                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(
+                                        Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiFare taxiFare) {
-                        return taxiFare.getEventTimeMillis();
-                    }
-
-                }, "taxi fare"
-        ).keyBy(fare -> fare.rideId);
+                                    @Override
+                                    public long extractTimestamp(TaxiFare taxiFare) {
+                                        return taxiFare.getEventTimeMillis();
+                                    }
+                                },
+                                "taxi fare")
+                        .keyBy(fare -> fare.rideId);
 
         // Create the pipeline.
-        rides.connect(fares)
-                .flatMap(new EnrichmentFunction())
-                .sinkTo(sink);
+        rides.connect(fares).flatMap(new EnrichmentFunction()).sinkTo(sink);
 
         // Execute the pipeline and return the result.
         return env.execute("Join Rides with Fares");
@@ -121,9 +122,7 @@ public class RidesAndFaresExercise implements Serializable {
 
         RidesAndFaresExercise job =
                 new RidesAndFaresExercise(
-                        new TaxiRideGenerator(),
-                        new TaxiFareGenerator(),
-                        new PrintSink<>());
+                        new TaxiRideGenerator(), new TaxiFareGenerator(), new PrintSink<>());
 
         job.execute();
     }
@@ -136,7 +135,9 @@ public class RidesAndFaresExercise implements Serializable {
         @Override
         public void open(OpenContext config) throws Exception {
             MapStateDescriptor<Long, Pair<TaxiRide, TaxiFare>> rideStateDescriptor =
-                    (MapStateDescriptor<Long, Pair<TaxiRide, TaxiFare>>) (MapStateDescriptor) new MapStateDescriptor<>("ride event", Long.class, Pair.class);
+                    (MapStateDescriptor<Long, Pair<TaxiRide, TaxiFare>>)
+                            (MapStateDescriptor)
+                                    new MapStateDescriptor<>("ride event", Long.class, Pair.class);
             rideState = getRuntimeContext().getMapState(rideStateDescriptor);
         }
 

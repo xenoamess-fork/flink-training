@@ -18,15 +18,16 @@
 
 package org.apache.flink.training.exercises.testing;
 
+import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import org.apache.flink.api.connector.sink2.Sink;
-import org.apache.flink.api.connector.sink2.SinkWriter;
-import org.apache.flink.api.connector.sink2.WriterInitContext;
 
 public class TestSink<OUT> implements Sink<OUT> {
 
@@ -34,7 +35,8 @@ public class TestSink<OUT> implements Sink<OUT> {
 
     private final String valueUuId;
 
-    public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Object>> RESULTS = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Object>> RESULTS =
+            new ConcurrentHashMap<>();
 
     public Collection<OUT> getResults() {
         ConcurrentLinkedQueue<OUT> result = (ConcurrentLinkedQueue<OUT>) RESULTS.get(valueUuId);
@@ -69,10 +71,12 @@ public class TestSink<OUT> implements Sink<OUT> {
         @Override
         public void write(OUT element, Context context) throws IOException, InterruptedException {
             RESULTS.computeIfAbsent(
-                    valueUuId,
-                    k -> new ConcurrentLinkedQueue<>(// Initialize with an empty list to avoid null checks
-                    )
-            ).add(element);
+                            valueUuId,
+                            k ->
+                                    new ConcurrentLinkedQueue<>( // Initialize with an empty list to
+                                            // avoid null checks
+                                            ))
+                    .add(element);
         }
 
         @Override
@@ -84,7 +88,5 @@ public class TestSink<OUT> implements Sink<OUT> {
         public void close() throws Exception {
             System.out.println("TestSinkWriter.close");
         }
-
     }
-
 }

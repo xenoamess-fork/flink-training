@@ -18,8 +18,6 @@
 
 package org.apache.flink.training.exercises.hourlytips;
 
-import java.io.Serializable;
-import java.time.Duration;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
@@ -32,6 +30,9 @@ import org.apache.flink.training.exercises.common.datatypes.TaxiFare;
 import org.apache.flink.training.exercises.common.sources.TaxiFareGenerator;
 import org.apache.flink.training.exercises.common.utils.MissingSolutionException;
 
+import java.io.Serializable;
+import java.time.Duration;
+
 /**
  * The Hourly Tips exercise from the Flink training.
  *
@@ -43,11 +44,8 @@ public class HourlyTipsExercise implements Serializable {
     private final Source<TaxiFare, ?, ?> source;
     private final Sink<Tuple3<Long, Long, Float>> sink;
 
-    /**
-     * Creates a job using the source and sink provided.
-     */
-    public HourlyTipsExercise(
-            Source<TaxiFare, ?, ?> source, Sink<Tuple3<Long, Long, Float>> sink) {
+    /** Creates a job using the source and sink provided. */
+    public HourlyTipsExercise(Source<TaxiFare, ?, ?> source, Sink<Tuple3<Long, Long, Float>> sink) {
 
         this.source = source;
         this.sink = sink;
@@ -60,8 +58,7 @@ public class HourlyTipsExercise implements Serializable {
      */
     public static void main(String[] args) throws Exception {
 
-        HourlyTipsExercise job =
-                new HourlyTipsExercise(new TaxiFareGenerator(), new PrintSink<>());
+        HourlyTipsExercise job = new HourlyTipsExercise(new TaxiFareGenerator(), new PrintSink<>());
 
         job.execute();
     }
@@ -73,22 +70,22 @@ public class HourlyTipsExercise implements Serializable {
      * @throws Exception which occurs during job execution.
      */
     public JobExecutionResult execute() throws Exception {
-
         // set up streaming execution environment
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         // start the data generator
-        DataStream<TaxiFare> fares = env.fromSource(
-                source,
-                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(Duration.ofSeconds(10)) {
+        DataStream<TaxiFare> fares =
+                env.fromSource(
+                        source,
+                        new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(
+                                Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiFare taxiFare) {
-                        return taxiFare.getEventTimeMillis();
-                    }
-
-                }, "taxi fare"
-        );
+                            @Override
+                            public long extractTimestamp(TaxiFare taxiFare) {
+                                return taxiFare.getEventTimeMillis();
+                            }
+                        },
+                        "taxi fare");
 
         // replace this with your solution
         if (true) {

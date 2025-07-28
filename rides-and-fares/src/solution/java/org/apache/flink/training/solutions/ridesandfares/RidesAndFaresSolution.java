@@ -18,8 +18,6 @@
 
 package org.apache.flink.training.solutions.ridesandfares;
 
-import java.io.Serializable;
-import java.time.Duration;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.state.ValueState;
@@ -39,6 +37,9 @@ import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiFareGenerator;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
 import org.apache.flink.util.Collector;
+
+import java.io.Serializable;
+import java.time.Duration;
 
 /**
  * Java reference implementation for the Stateful Enrichment exercise from the Flink training.
@@ -73,29 +74,35 @@ public class RidesAndFaresSolution implements Serializable {
 
         // A stream of taxi ride START events, keyed by rideId.
 
-        DataStream<TaxiRide> rides = env.fromSource(
-                rideSource,
-                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(Duration.ofSeconds(10)) {
+        DataStream<TaxiRide> rides =
+                env.fromSource(
+                                rideSource,
+                                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(
+                                        Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.getEventTimeMillis();
-                    }
-
-                }, "taxi ride").filter(ride -> ride.isStart).keyBy(ride -> ride.rideId);
+                                    @Override
+                                    public long extractTimestamp(TaxiRide taxiRide) {
+                                        return taxiRide.getEventTimeMillis();
+                                    }
+                                },
+                                "taxi ride")
+                        .filter(ride -> ride.isStart)
+                        .keyBy(ride -> ride.rideId);
 
         // A stream of taxi fare events, also keyed by rideId.
-        KeyedStream<TaxiFare, Long> fares = env.fromSource(
-                fareSource,
-                     new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(Duration.ofSeconds(10)) {
+        KeyedStream<TaxiFare, Long> fares =
+                env.fromSource(
+                                fareSource,
+                                new BoundedOutOfOrdernessTimestampExtractor<TaxiFare>(
+                                        Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiFare taxiFare) {
-                        return taxiFare.getEventTimeMillis();
-                    }
-
-                }, "taxi fare"
-        ).keyBy(fare -> fare.rideId);
+                                    @Override
+                                    public long extractTimestamp(TaxiFare taxiFare) {
+                                        return taxiFare.getEventTimeMillis();
+                                    }
+                                },
+                                "taxi fare")
+                        .keyBy(fare -> fare.rideId);
 
         // Create the pipeline.
         rides.connect(fares)
@@ -124,9 +131,7 @@ public class RidesAndFaresSolution implements Serializable {
 
         RidesAndFaresSolution job =
                 new RidesAndFaresSolution(
-                        new TaxiRideGenerator(),
-                        new TaxiFareGenerator(),
-                        new PrintSink<>());
+                        new TaxiRideGenerator(), new TaxiFareGenerator(), new PrintSink<>());
 
         // Setting up checkpointing so that the state can be explored with the State Processor API.
         // Generally it's better to separate configuration settings from the code,

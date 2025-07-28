@@ -18,8 +18,6 @@
 
 package org.apache.flink.training.exercises.hourlytips;
 
-import java.util.Collection;
-import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple3;
@@ -38,7 +36,8 @@ import org.junit.Test;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
+import java.util.Collection;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
@@ -46,9 +45,7 @@ public class HourlyTipsTest {
 
     private static final int PARALLELISM = 2;
 
-    /**
-     * This isn't necessary, but speeds up the tests.
-     */
+    /** This isn't necessary, but speeds up the tests. */
     @ClassRule
     public static MiniClusterWithClientResource flinkCluster =
             new MiniClusterWithClientResource(
@@ -75,7 +72,8 @@ public class HourlyTipsTest {
         TaxiFare fiveIn1 = testFare(1, t(15), 5.0F);
         TaxiFare tenIn2 = testFare(1, t(90), 10.0F);
 
-        Supplier<Source<TaxiFare, ?, ?>> sourceSupplier = () -> new ParallelTestSource<>(oneIn1, fiveIn1, tenIn2);
+        Supplier<Source<TaxiFare, ?, ?>> sourceSupplier =
+                () -> new ParallelTestSource<>(oneIn1, fiveIn1, tenIn2);
 
         Tuple3<Long, Long, Float> hour1 = Tuple3.of(t(60).toEpochMilli(), 1L, 6.0F);
         Tuple3<Long, Long, Float> hour2 = Tuple3.of(t(120).toEpochMilli(), 1L, 10.0F);
@@ -95,15 +93,16 @@ public class HourlyTipsTest {
         TaxiFare tenFor5In2 = testFare(5, t(100), 10.0F);
 
         Supplier<Source<TaxiFare, ?, ?>> sourceSupplier =
-                () -> new ParallelTestSource<>(
-                        oneFor1In1,
-                        fiveFor1In1,
-                        tenFor1In2,
-                        twentyFor2In2,
-                        zeroFor3In2,
-                        zeroFor4In2,
-                        oneFor4In2,
-                        tenFor5In2);
+                () ->
+                        new ParallelTestSource<>(
+                                oneFor1In1,
+                                fiveFor1In1,
+                                tenFor1In2,
+                                twentyFor2In2,
+                                zeroFor3In2,
+                                zeroFor4In2,
+                                oneFor4In2,
+                                tenFor5In2);
 
         Tuple3<Long, Long, Float> hour1 = Tuple3.of(t(60).toEpochMilli(), 1L, 6.0F);
         Tuple3<Long, Long, Float> hour2 = Tuple3.of(t(120).toEpochMilli(), 2L, 20.0F);
@@ -122,16 +121,18 @@ public class HourlyTipsTest {
     private ComposedPipeline<TaxiFare, Tuple3<Long, Long, Float>> hourlyTipsPipeline() {
 
         ExecutablePipeline<TaxiFare, Tuple3<Long, Long, Float>> exercise =
-                (sourceSupplier, sink) -> new HourlyTipsExercise(sourceSupplier.get(), sink).execute();
+                (sourceSupplier, sink) ->
+                        new HourlyTipsExercise(sourceSupplier.get(), sink).execute();
 
         ExecutablePipeline<TaxiFare, Tuple3<Long, Long, Float>> solution =
-                (sourceSupplier, sink) -> new HourlyTipsSolution(sourceSupplier.get(), sink).execute();
+                (sourceSupplier, sink) ->
+                        new HourlyTipsSolution(sourceSupplier.get(), sink).execute();
 
         return new ComposedPipeline<>(exercise, solution);
     }
 
-    protected Collection<Tuple3<Long, Long, Float>> results(Supplier<Source<TaxiFare, ?, ?>> sourceSupplier)
-            throws Exception {
+    protected Collection<Tuple3<Long, Long, Float>> results(
+            Supplier<Source<TaxiFare, ?, ?>> sourceSupplier) throws Exception {
 
         TestSink<Tuple3<Long, Long, Float>> sink = new TestSink<>();
         JobExecutionResult jobResult = hourlyTipsPipeline().execute(sourceSupplier, sink);

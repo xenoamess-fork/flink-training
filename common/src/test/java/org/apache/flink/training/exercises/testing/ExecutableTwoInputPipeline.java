@@ -20,10 +20,9 @@ package org.apache.flink.training.exercises.testing;
 
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.source.Source;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 
 public interface ExecutableTwoInputPipeline<IN1, IN2, OUT> {
     JobExecutionResult execute(
-            Source<IN1,?,?> source1, Source<IN2,?,?> source2, TestSink<OUT> sink)
+            Source<IN1, ?, ?> source1, Source<IN2, ?, ?> source2, TestSink<OUT> sink)
             throws Exception;
 }

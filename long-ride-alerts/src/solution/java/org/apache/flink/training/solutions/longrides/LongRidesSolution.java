@@ -18,7 +18,6 @@
 
 package org.apache.flink.training.solutions.longrides;
 
-import java.io.Serializable;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
@@ -36,6 +35,7 @@ import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
 import org.apache.flink.util.Collector;
 
+import java.io.Serializable;
 import java.time.Duration;
 
 /**
@@ -51,9 +51,7 @@ public class LongRidesSolution implements Serializable {
     private final Source<TaxiRide, ?, ?> source;
     private final Sink<Long> sink;
 
-    /**
-     * Creates a job using the source and sink provided.
-     */
+    /** Creates a job using the source and sink provided. */
     public LongRidesSolution(Source<TaxiRide, ?, ?> source, Sink<Long> sink) {
 
         this.source = source;
@@ -72,16 +70,18 @@ public class LongRidesSolution implements Serializable {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         // start the data generator
-        DataStream<TaxiRide> rides = env.fromSource(
-                source,
-                new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(Duration.ofSeconds(10)) {
+        DataStream<TaxiRide> rides =
+                env.fromSource(
+                        source,
+                        new BoundedOutOfOrdernessTimestampExtractor<TaxiRide>(
+                                Duration.ofSeconds(10)) {
 
-                    @Override
-                    public long extractTimestamp(TaxiRide taxiRide) {
-                        return taxiRide.getEventTimeMillis();
-                    }
-
-                }, "taxi ride");
+                            @Override
+                            public long extractTimestamp(TaxiRide taxiRide) {
+                                return taxiRide.getEventTimeMillis();
+                            }
+                        },
+                        "taxi ride");
 
         // the WatermarkStrategy specifies how to extract timestamps and generate watermarks
         WatermarkStrategy<TaxiRide> watermarkStrategy =
@@ -105,8 +105,7 @@ public class LongRidesSolution implements Serializable {
      * @throws Exception which occurs during job execution.
      */
     public static void main(String[] args) throws Exception {
-        LongRidesSolution job =
-                new LongRidesSolution(new TaxiRideGenerator(), new PrintSink<>());
+        LongRidesSolution job = new LongRidesSolution(new TaxiRideGenerator(), new PrintSink<>());
 
         job.execute();
     }
@@ -173,7 +172,7 @@ public class LongRidesSolution implements Serializable {
 
         private boolean rideTooLong(TaxiRide startEvent, TaxiRide endEvent) {
             return Duration.between(startEvent.eventTime, endEvent.eventTime)
-                    .compareTo(Duration.ofHours(2))
+                            .compareTo(Duration.ofHours(2))
                     > 0;
         }
 

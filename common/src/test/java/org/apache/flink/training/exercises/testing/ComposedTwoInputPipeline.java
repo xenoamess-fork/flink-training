@@ -20,7 +20,6 @@ package org.apache.flink.training.exercises.testing;
 
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.connector.source.Source;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.training.exercises.common.utils.MissingSolutionException;
 
 /**
@@ -44,7 +43,7 @@ public class ComposedTwoInputPipeline<IN1, IN2, OUT>
 
     @Override
     public JobExecutionResult execute(
-            Source<IN1, ?,?> source1, Source<IN2,?,?> source2, TestSink<OUT> sink)
+            Source<IN1, ?, ?> source1, Source<IN2, ?, ?> source2, TestSink<OUT> sink)
             throws Exception {
 
         JobExecutionResult result;

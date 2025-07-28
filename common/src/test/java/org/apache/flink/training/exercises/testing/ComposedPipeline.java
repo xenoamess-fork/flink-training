@@ -18,12 +18,11 @@
 
 package org.apache.flink.training.exercises.testing;
 
-import java.util.function.Supplier;
 import org.apache.flink.api.common.JobExecutionResult;
-import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
-import org.apache.flink.streaming.api.functions.source.legacy.SourceFunction;
 import org.apache.flink.training.exercises.common.utils.MissingSolutionException;
+
+import java.util.function.Supplier;
 
 /**
  * This allows the tests to be run against both the exercises and the solutions.
