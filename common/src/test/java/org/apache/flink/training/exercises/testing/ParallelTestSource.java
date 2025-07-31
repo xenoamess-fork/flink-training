@@ -1,3 +1,5 @@
+package org.apache.flink.training.exercises.testing;
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -16,10 +18,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.training.exercises.testing;
-
-import java.lang.ref.WeakReference;
-import java.util.Collection;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.serialization.SerializerConfigImpl;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -36,6 +35,15 @@ import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.streaming.api.lineage.DefaultLineageDataset;
+import org.apache.flink.streaming.api.lineage.LineageDataset;
+import org.apache.flink.streaming.api.lineage.LineageVertex;
+import org.apache.flink.streaming.api.lineage.LineageVertexProvider;
+import org.apache.flink.streaming.api.lineage.SourceLineageVertex;
+import org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,21 +54,23 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.flink.core.memory.DataInputViewStreamWrapper;
-import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 
 public class ParallelTestSource<T>
-        implements Source<T, ParallelTestSource.InMemorySplit<T>, List<T>>, ResultTypeQueryable<T> {
+        implements Source<T, ParallelTestSource.InMemorySplit<T>, List<T>>,
+                ResultTypeQueryable<T>,
+                OutputTypeConfigurable<T>,
+                LineageVertexProvider {
 
-    /**
-     * The (de)serializer to be used for the data elements.
-     */
-    private final TypeSerializer<T> serializer;
+    /** The (de)serializer to be used for the data elements. */
+    private TypeSerializer<T> serializer;
 
     private final List<T> elements;
 
@@ -79,28 +89,24 @@ public class ParallelTestSource<T>
     public ParallelTestSource(
             @Nullable TypeSerializer<T> serializer,
             @Nullable TypeInformation<T> typeInfo,
-            T... elements
-    ) {
-        this(
-                serializer,
-                typeInfo,
-                List.of(elements)
-        );
+            T... elements) {
+        this(serializer, typeInfo, List.of(elements));
     }
 
     public ParallelTestSource(
             @Nullable TypeSerializer<T> serializer,
             @Nullable TypeInformation<T> typeInfo,
-            @Nonnull Collection<T> elements
-    ) {
+            @Nonnull Collection<T> elements) {
         this.elements = new ArrayList<>(elements);
-        T firstElement = this.elements.get(0);
-        Class<T> elementClass = (Class<T>) firstElement.getClass();
-        this.serializer = serializer != null ? serializer : new KryoSerializer<T>(elementClass, new SerializerConfigImpl());
 
         if (typeInfo != null) {
             this.typeInfo = typeInfo;
         } else {
+            if (this.elements.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "The type information must be specified when the collection is empty");
+            }
+            T firstElement = this.elements.get(0);
             try {
                 this.typeInfo = TypeExtractor.getForObject(firstElement);
             } catch (Exception e) {
@@ -111,6 +117,14 @@ public class ParallelTestSource<T>
                         e);
             }
         }
+
+        checkIterable(elements, this.typeInfo.getTypeClass());
+
+        this.serializer =
+                serializer != null
+                        ? serializer
+                        : new KryoSerializer<T>(
+                                this.typeInfo.getTypeClass(), new SerializerConfigImpl());
     }
 
     @Override
@@ -150,9 +164,7 @@ public class ParallelTestSource<T>
         return this.typeInfo;
     }
 
-    /**
-     * Split definition for in-memory data.
-     */
+    /** Split definition for in-memory data. */
     public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
         private final List<T> slice;
@@ -172,9 +184,7 @@ public class ParallelTestSource<T>
         }
     }
 
-    /**
-     * SplitEnumerator：split data.
-     */
+    /** SplitEnumerator：split data. */
     public static class InMemoryEnumerator<T>
             implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
@@ -188,8 +198,7 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
         public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
@@ -234,24 +243,19 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
-    /**
-     * SourceReader: read data.
-     */
+    /** SourceReader: read data. */
     public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
         private final Queue<T> remaining = new ArrayDeque<>();
         private final AtomicBoolean initialized = new AtomicBoolean(false);
 
-        public InMemoryReader() {
-        }
+        public InMemoryReader() {}
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
         public InputStatus pollNext(ReaderOutput<T> output) {
@@ -286,20 +290,16 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void notifyNoMoreSplits() {
-        }
+        public void notifyNoMoreSplits() {}
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
     public static class InMemorySplitSerializer<T>
             implements SimpleVersionedSerializer<InMemorySplit<T>> {
 
-        /**
-         * The (de)serializer to be used for the data elements.
-         */
+        /** The (de)serializer to be used for the data elements. */
         private final TypeSerializer<T> serializer;
 
         public InMemorySplitSerializer(TypeSerializer<T> serializer) {
@@ -322,7 +322,8 @@ public class ParallelTestSource<T>
                     serializer.serialize(element, wrapper);
                 }
             } catch (Exception e) {
-                throw new IOException("Serializing the source elements failed: " + e.getMessage(), e);
+                throw new IOException(
+                        "Serializing the source elements failed: " + e.getMessage(), e);
             }
             return baos.toByteArray();
         }
@@ -340,16 +341,15 @@ public class ParallelTestSource<T>
                 }
                 return new InMemorySplit<>(splitId, result);
             } catch (IOException e) {
-                throw new IOException("Deserializing the source elements failed: " + e.getMessage(), e);
+                throw new IOException(
+                        "Deserializing the source elements failed: " + e.getMessage(), e);
             }
         }
     }
 
     public static class CheckpointSerializer<T> implements SimpleVersionedSerializer<List<T>> {
 
-        /**
-         * The (de)serializer to be used for the data elements.
-         */
+        /** The (de)serializer to be used for the data elements. */
         private final TypeSerializer<T> serializer;
 
         public CheckpointSerializer(TypeSerializer<T> serializer) {
@@ -371,7 +371,8 @@ public class ParallelTestSource<T>
                     serializer.serialize(element, wrapper);
                 }
             } catch (Exception e) {
-                throw new IOException("Serializing the source elements failed: " + e.getMessage(), e);
+                throw new IOException(
+                        "Serializing the source elements failed: " + e.getMessage(), e);
             }
             return baos.toByteArray();
         }
@@ -388,8 +389,74 @@ public class ParallelTestSource<T>
                 }
                 return result;
             } catch (IOException e) {
-                throw new IOException("Deserializing the source elements failed: " + e.getMessage(), e);
+                throw new IOException(
+                        "Deserializing the source elements failed: " + e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * Set element type and re-serialize element if required. Should only be called before
+     * serialization/deserialization of this function.
+     */
+    @Override
+    public void setOutputType(TypeInformation<T> outTypeInfo, ExecutionConfig executionConfig) {
+        Preconditions.checkState(
+                elements != null,
+                "The output type should've been specified before shipping the graph to the cluster");
+        checkIterable(elements, outTypeInfo.getTypeClass());
+        TypeSerializer<T> newSerializer =
+                outTypeInfo.createSerializer(executionConfig.getSerializerConfig());
+        if (Objects.equals(serializer, newSerializer)) {
+            return;
+        }
+        serializer = newSerializer;
+    }
+
+    // ------------------------------------------------------------------------
+    //  Utilities
+    // ------------------------------------------------------------------------
+
+    /**
+     * Verifies that all elements in the collection are non-null, and are of the given class, or a
+     * subclass thereof.
+     *
+     * @param elements The collection to check.
+     * @param viewedAs The class to which the elements must be assignable to.
+     * @param <OUT> The generic type of the collection to be checked.
+     */
+    public static <OUT> void checkCollection(Collection<OUT> elements, Class<OUT> viewedAs) {
+        checkIterable(elements, viewedAs);
+    }
+
+    private static <OUT> void checkIterable(Iterable<OUT> elements, Class<?> viewedAs) {
+        for (OUT elem : elements) {
+            if (elem == null) {
+                throw new IllegalArgumentException("The collection contains a null element");
+            }
+
+            if (!viewedAs.isAssignableFrom(elem.getClass())) {
+                throw new IllegalArgumentException(
+                        "The elements in the collection are not all subclasses of "
+                                + viewedAs.getCanonicalName());
+            }
+        }
+    }
+
+    @Override
+    public LineageVertex getLineageVertex() {
+        return new SourceLineageVertex() {
+            @Override
+            public Boundedness boundedness() {
+                return Boundedness.BOUNDED;
+            }
+
+            @Override
+            public List<LineageDataset> datasets() {
+                return List.of(
+                        new DefaultLineageDataset(
+                                "", "values://FromElementsSource", new HashMap<>()));
+            }
+        };
     }
 }
