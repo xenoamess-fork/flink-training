@@ -18,7 +18,11 @@
 
 package org.apache.flink.training.exercises.testing;
 
+import java.lang.ref.WeakReference;
+import java.util.Collection;
+import org.apache.flink.api.common.serialization.SerializerConfigImpl;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.Source;
@@ -28,16 +32,17 @@ import org.apache.flink.api.connector.source.SourceSplit;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -46,29 +51,76 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 
 public class ParallelTestSource<T>
         implements Source<T, ParallelTestSource.InMemorySplit<T>, List<T>>, ResultTypeQueryable<T> {
 
+    /**
+     * The (de)serializer to be used for the data elements.
+     */
+    private final TypeSerializer<T> serializer;
+
     private final List<T> elements;
 
+    private final TypeInformation<T> typeInfo;
+
+    @SafeVarargs
     public ParallelTestSource(T... elements) {
-        this(new ArrayList<>(List.of(elements)));
+        this(List.of(elements));
     }
 
-    public ParallelTestSource(List<T> elements) {
-        this.elements = elements;
+    public ParallelTestSource(Collection<T> elements) {
+        this(null, null, elements);
+    }
+
+    @SafeVarargs
+    public ParallelTestSource(
+            @Nullable TypeSerializer<T> serializer,
+            @Nullable TypeInformation<T> typeInfo,
+            T... elements
+    ) {
+        this(
+                serializer,
+                typeInfo,
+                List.of(elements)
+        );
+    }
+
+    public ParallelTestSource(
+            @Nullable TypeSerializer<T> serializer,
+            @Nullable TypeInformation<T> typeInfo,
+            @Nonnull Collection<T> elements
+    ) {
+        this.elements = new ArrayList<>(elements);
+        T firstElement = this.elements.get(0);
+        Class<T> elementClass = (Class<T>) firstElement.getClass();
+        this.serializer = serializer != null ? serializer : new KryoSerializer<T>(elementClass, new SerializerConfigImpl());
+
+        if (typeInfo != null) {
+            this.typeInfo = typeInfo;
+        } else {
+            try {
+                this.typeInfo = TypeExtractor.getForObject(firstElement);
+            } catch (Exception e) {
+                throw new RuntimeException(
+                        "Could not create TypeInformation for type "
+                                + firstElement.getClass().getName()
+                                + "; please specify the TypeInformation manually",
+                        e);
+            }
+        }
     }
 
     @Override
     public Boundedness getBoundedness() {
-        // 这批数据是有限的
         return Boundedness.BOUNDED;
     }
 
     @Override
     public SourceReader<T, InMemorySplit<T>> createReader(SourceReaderContext ctx) {
-        return new InMemoryReader(elements);
+        return new InMemoryReader<>();
     }
 
     @Override
@@ -85,21 +137,22 @@ public class ParallelTestSource<T>
 
     @Override
     public SimpleVersionedSerializer<InMemorySplit<T>> getSplitSerializer() {
-        return new InMemorySplitSerializer();
+        return new InMemorySplitSerializer<>(this.serializer);
     }
 
     @Override
     public SimpleVersionedSerializer<List<T>> getEnumeratorCheckpointSerializer() {
-        return new CheckpointSerializer<>();
+        return new CheckpointSerializer<>(this.serializer);
     }
 
     @Override
     public TypeInformation<T> getProducedType() {
-        //noinspection unchecked
-        return (TypeInformation<T>) TypeInformation.of(elements.get(0).getClass());
+        return this.typeInfo;
     }
 
-    /** Split definition for in-memory data. */
+    /**
+     * Split definition for in-memory data.
+     */
     public static class InMemorySplit<T> implements SourceSplit, Serializable {
         private final int splitId;
         private final List<T> slice;
@@ -119,7 +172,9 @@ public class ParallelTestSource<T>
         }
     }
 
-    /** SplitEnumerator：split data. */
+    /**
+     * SplitEnumerator：split data.
+     */
     public static class InMemoryEnumerator<T>
             implements SplitEnumerator<InMemorySplit<T>, List<T>> {
 
@@ -133,13 +188,18 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void start() {}
+        public void start() {
+        }
 
         @Override
-        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {}
+        public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
-        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {}
+        public void addSplitsBack(List<InMemorySplit<T>> splits, int subtaskId) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public void addReader(int subtaskId) {
@@ -174,22 +234,24 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void close() {}
+        public void close() {
+        }
     }
 
-    /** SourceReader: read data. */
+    /**
+     * SourceReader: read data.
+     */
     public static class InMemoryReader<T> implements SourceReader<T, InMemorySplit<T>> {
 
-        private final List<T> allElements;
         private final Queue<T> remaining = new ArrayDeque<>();
         private final AtomicBoolean initialized = new AtomicBoolean(false);
 
-        public InMemoryReader(List<T> allElements) {
-            this.allElements = allElements;
+        public InMemoryReader() {
         }
 
         @Override
-        public void start() {}
+        public void start() {
+        }
 
         @Override
         public InputStatus pollNext(ReaderOutput<T> output) {
@@ -224,39 +286,76 @@ public class ParallelTestSource<T>
         }
 
         @Override
-        public void notifyNoMoreSplits() {}
+        public void notifyNoMoreSplits() {
+        }
 
         @Override
-        public void close() {}
+        public void close() {
+        }
     }
 
     public static class InMemorySplitSerializer<T>
             implements SimpleVersionedSerializer<InMemorySplit<T>> {
+
+        /**
+         * The (de)serializer to be used for the data elements.
+         */
+        private final TypeSerializer<T> serializer;
+
+        public InMemorySplitSerializer(TypeSerializer<T> serializer) {
+            this.serializer = serializer;
+        }
+
         @Override
         public int getVersion() {
             return 1;
         }
 
         @Override
-        public byte[] serialize(InMemorySplit split) throws IOException {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutputStream oos = new ObjectOutputStream(bos);
-            oos.writeObject(split);
-            return bos.toByteArray();
+        public byte[] serialize(InMemorySplit<T> split) throws IOException {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
+            try {
+                wrapper.writeInt(split.splitId);
+                wrapper.writeInt(split.slice.size());
+                for (T element : split.slice) {
+                    serializer.serialize(element, wrapper);
+                }
+            } catch (Exception e) {
+                throw new IOException("Serializing the source elements failed: " + e.getMessage(), e);
+            }
+            return baos.toByteArray();
         }
 
         @Override
         public InMemorySplit<T> deserialize(int version, byte[] serialized) throws IOException {
-            try (ObjectInputStream ois =
-                    new ObjectInputStream(new ByteArrayInputStream(serialized))) {
-                return (InMemorySplit<T>) ois.readObject();
-            } catch (ClassNotFoundException e) {
-                throw new IOException(e);
+            ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
+            DataInputViewStreamWrapper wrapper = new DataInputViewStreamWrapper(bais);
+            try {
+                int splitId = wrapper.readInt();
+                int size = wrapper.readInt();
+                List<T> result = new ArrayList<>(size);
+                for (int i = 0; i < size; i++) {
+                    result.add(serializer.deserialize(wrapper));
+                }
+                return new InMemorySplit<>(splitId, result);
+            } catch (IOException e) {
+                throw new IOException("Deserializing the source elements failed: " + e.getMessage(), e);
             }
         }
     }
 
     public static class CheckpointSerializer<T> implements SimpleVersionedSerializer<List<T>> {
+
+        /**
+         * The (de)serializer to be used for the data elements.
+         */
+        private final TypeSerializer<T> serializer;
+
+        public CheckpointSerializer(TypeSerializer<T> serializer) {
+            this.serializer = serializer;
+        }
+
         @Override
         public int getVersion() {
             return 1;
@@ -264,12 +363,33 @@ public class ParallelTestSource<T>
 
         @Override
         public byte[] serialize(List<T> obj) throws IOException {
-            return new byte[0];
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
+            try {
+                wrapper.writeInt(obj.size());
+                for (T element : obj) {
+                    serializer.serialize(element, wrapper);
+                }
+            } catch (Exception e) {
+                throw new IOException("Serializing the source elements failed: " + e.getMessage(), e);
+            }
+            return baos.toByteArray();
         }
 
         @Override
-        public List<T> deserialize(int version, byte[] serialized) {
-            return Collections.emptyList();
+        public List<T> deserialize(int version, byte[] serialized) throws IOException {
+            ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
+            DataInputViewStreamWrapper wrapper = new DataInputViewStreamWrapper(bais);
+            try {
+                int size = wrapper.readInt();
+                List<T> result = new ArrayList<>(size);
+                for (int i = 0; i < size; i++) {
+                    result.add(serializer.deserialize(wrapper));
+                }
+                return result;
+            } catch (IOException e) {
+                throw new IOException("Deserializing the source elements failed: " + e.getMessage(), e);
+            }
         }
     }
 }
